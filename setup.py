@@ -11,7 +11,7 @@ APP = ['main.py']
 APP_NAME = "InfluxDBClient"
 DATA_FILES = ['main.py', 'create_database.py', 'create_ui.py', 'history_ui.py', 'new_connect_ui.py', 'ui.py', 'db',
               'images']
-OPTIONS = {'iconfile': 'main.icns', 'argv_emulation': True}
+OPTIONS = {'iconfile': 'main.icns'}
 
 setup(
     app=APP,

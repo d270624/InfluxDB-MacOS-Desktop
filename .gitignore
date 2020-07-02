@@ -1,2 +1,5 @@
-# Project exclude paths
-/venv/
+build/
+dist/
+venv/
+setup.app/
+.idea/
