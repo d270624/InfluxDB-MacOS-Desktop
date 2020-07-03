@@ -66,18 +66,22 @@ class InfluxManage(Ui_MainWindow, QObject):
 
         self.new_ui = Ui_Form()
         self.new_QWidget = QWidget()
+        self.new_QWidget.setWindowModality(Qt.ApplicationModal)
         self.new_ui.setupUi(self.new_QWidget)
 
         self.histroy_ui = Ui_history_ui()
         self.QWidget = QWidget()
+        self.QWidget.setWindowModality(Qt.ApplicationModal)
         self.histroy_ui.setupUi(self.QWidget)
 
         self.create_ui = Create_Ui_Form()
         self.create_QWidget = QWidget()
+        self.create_QWidget.setWindowModality(Qt.ApplicationModal)
         self.create_ui.setupUi(self.create_QWidget)
 
         self.create_database_ui = Ui_create_database()
         self.create_database_QWidget = QWidget()
+        self.create_database_QWidget.setWindowModality(Qt.ApplicationModal)
         self.create_database_ui.setupUi(self.create_database_QWidget)
 
         self.path = os.path.dirname(sys.argv[0])
