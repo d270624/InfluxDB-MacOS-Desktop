@@ -8,7 +8,7 @@ import sys
 import time
 
 from PyQt5 import QtCore
-from PyQt5.QtCore import Qt, pyqtSignal, QObject
+from PyQt5.QtCore import Qt, pyqtSignal, QObject, QPoint
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from influxdb import InfluxDBClient
@@ -18,6 +18,8 @@ from create_ui import Create_Ui_Form
 from history_ui import Ui_history_ui
 from new_connect_ui import Ui_Form
 from ui import Ui_MainWindow
+from constant import sql_constant
+from MyTextEdit import MyTextEdit
 
 
 class MyQMainWindow(QMainWindow):
@@ -90,6 +92,8 @@ class InfluxManage(Ui_MainWindow, QObject):
         self.main_ui.treeView.customContextMenuRequested.connect(self.right_click_menu)  # 绑定事件
 
         self.influxDbClient = InfluxRegister()
+        self.edit_context_menu = QMenu()  # 创建对象
+        self.edit_context_flag = False
 
     def save_history(self, text):
         save_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -216,18 +220,20 @@ class InfluxManage(Ui_MainWindow, QObject):
     def tab_close(self, index):
         self.main_ui.tabWidget.removeTab(index)
 
-    def create_table(self, text, name, database):
+    def create_table(self, text, name, database, tables_name=None):
         tab = QWidget()
         tab.setObjectName("tab")
-
-        textEdit = QTextEdit(tab)
+        MyTextEdit.constant = sql_constant
+        if tables_name:
+            MyTextEdit.constant.extend(tables_name)
+        textEdit = MyTextEdit(tab)
         textEdit.setGeometry(QtCore.QRect(0, 0, 1101, 181))
         textEdit.setObjectName("textEdit")
-        textEdit.setText(text)
+        textEdit.setPlainText(text)
 
-        self.tableWidget = QTableWidget(tab)
-        self.tableWidget.setGeometry(QtCore.QRect(0, 211, 1101, 565))
-        self.tableWidget.setObjectName("tableWidget")
+        tableWidget = QTableWidget(tab)
+        tableWidget.setGeometry(QtCore.QRect(0, 211, 1101, 565))
+        tableWidget.setObjectName("tableWidget")
 
         self.QComboBox = QComboBox(tab)
         self.QComboBox.setGeometry(QtCore.QRect(986, 184, 120, 25))
@@ -313,7 +319,12 @@ class InfluxManage(Ui_MainWindow, QObject):
             database_name = self.main_ui.treeView.currentItem().parent().text(0)
             server_name = self.main_ui.treeView.currentItem().parent().parent().text(0)
             text = """SELECT * FROM "{}" WHERE time > now() - 5m""".format(table_name)
-            self.create_table(text, server_name, database_name)
+            childCount = self.main_ui.treeView.currentItem().parent().childCount()
+            tables_name = []
+            for x in range(childCount):
+                name = self.main_ui.treeView.currentItem().parent().child(x).text(0)
+                tables_name.append(name)
+            self.create_table(text, server_name, database_name, tables_name)
 
         elif level == (index_top, -1):  # 当双击服务器的时候显示数据库
             childCount = self.main_ui.treeView.currentItem().childCount()
@@ -347,19 +358,21 @@ class InfluxManage(Ui_MainWindow, QObject):
                 clients = self.influxDbClient.clients.get(name)
                 client = clients.get("client")
                 tables = client.query('show measurements;')
+                Children = []
                 for x in tables:
                     for i in x:
                         child = QTreeWidgetItem()
                         child.setText(0, i.get("name"))
                         child.setIcon(0, QIcon('images/form.ico'))
-                        self.main_ui.treeView.currentItem().addChild(child)
+                        Children.append(child)
+                self.main_ui.treeView.currentItem().addChildren(Children)
 
     def status_bar_signal(self, text):
         self.main_ui.statusBar.showMessage(text)
 
     def exec_handler(self):
         try:
-            text_obj = self.main_ui.tabWidget.currentWidget().findChild(QTextEdit, "textEdit")
+            text_obj = self.main_ui.tabWidget.currentWidget().findChild(QPlainTextEdit, "textEdit")
             old_time = time.time() * 1000
             tab_name = self.main_ui.tabWidget.tabText(self.main_ui.tabWidget.currentIndex())
             data = tab_name.rsplit(sep='.', maxsplit=1)
