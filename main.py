@@ -20,6 +20,7 @@ from new_connect_ui import Ui_Form
 from ui import Ui_MainWindow
 from constant import sql_constant
 from MyTextEdit import MyTextEdit
+import functools
 
 
 class MyQMainWindow(QMainWindow):
@@ -98,6 +99,8 @@ class InfluxManage(Ui_MainWindow, QObject):
         self.influxDbClient = InfluxRegister()
         self.edit_context_menu = QMenu()  # 创建对象
         self.edit_context_flag = False
+        self.qt_info = functools.partial(QMessageBox.information, self.MainWindow, '提示信息')
+        self.qt_cri = functools.partial(QMessageBox.critical, self.MainWindow, '提示信息')
 
     def save_history(self, text):
         save_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -142,9 +145,9 @@ class InfluxManage(Ui_MainWindow, QObject):
                                 verify_ssl=ssl_switch)
         try:
             client.get_list_database()
-            QMessageBox.information(self.QWidget, '提示信息', "连接成功")
+            self.qt_info("连接成功")
         except Exception as e:
-            QMessageBox.critical(self.QWidget, '提示信息', str(e))
+            self.qt_cri(str(e))
 
     def save_connect(self, types):
         """ 如果类型为True则编辑服务器"""
@@ -161,7 +164,7 @@ class InfluxManage(Ui_MainWindow, QObject):
             password = "null"
 
         if not all([name, address, port]):  # 当这三个中不管哪一个为空都不能继续往下执行
-            QMessageBox.critical(self.QWidget, '提示信息', "名称、地址、端口不可以为空")
+            self.qt_cri("名称、地址、端口不可以为空")
             return
         sql = """INSERT INTO ServerList (name, address, user, port, password, ssl_switch) VALUES ('{}','{}','{}',{},'{}',{})""".format(
             name, address, user, port, password, ssl)
@@ -188,12 +191,12 @@ class InfluxManage(Ui_MainWindow, QObject):
                 rootIndex = self.main_ui.treeView.topLevelItemCount()
                 self.get_server_list(True, ID, rootIndex)
             self.new_QWidget.close()
-            QMessageBox.information(self.MainWindow, '提示信息', "保存成功")
+            self.qt_info("保存成功")
 
         except sqlite3.IntegrityError as e:
-            QMessageBox.information(self.QWidget, '提示信息', "名称不能重复")
+            self.qt_info("名称不能重复")
         except ValueError as e:
-            QMessageBox.information(self.QWidget, '提示信息', str(e))
+            self.qt_info(str(e))
 
     def get_server_list(self, types=False, ID=None, rootIndex=None):
         """ ssl_switch : 开启ssl0 未开启ssl, 2"""
@@ -301,7 +304,7 @@ class InfluxManage(Ui_MainWindow, QObject):
                         newItem.setTextAlignment(Qt.AlignCenter)
                         currentTableWidget.setItem(index, _index, newItem)
         except Exception as e:
-            QMessageBox.critical(self.MainWindow, '提示信息', str(e))
+            self.qt_cri(str(e))
 
     def double_handler(self):
         """双击服务器节点事件"""
@@ -319,15 +322,26 @@ class InfluxManage(Ui_MainWindow, QObject):
 
         # 每个层级的逻辑处理
         if level == (-1, index_row):  # 当双击表的时候操作的事件
-            table_name = self.main_ui.treeView.currentItem().text(0)
-            database_name = self.main_ui.treeView.currentItem().parent().text(0)
-            server_name = self.main_ui.treeView.currentItem().parent().parent().text(0)
+            client, server_name, database_name, table_name = self.table_conn_client()
             text = """SELECT * FROM "{}" WHERE time > now() - 5m""".format(table_name)
             childCount = self.main_ui.treeView.currentItem().parent().childCount()
-            tables_name = []
+            tables_name = set()
             for x in range(childCount):
                 name = self.main_ui.treeView.currentItem().parent().child(x).text(0)
-                tables_name.append(name)
+                tables_name.add(name)
+            sql = 'SHOW TAG KEYS FROM "{}"'.format(table_name)
+            keys_data = client.query(sql)
+            sql = 'SHOW FIELD KEYS FROM "{}"'.format(table_name)
+            field_data = client.query(sql)
+            key_data = [x for x in keys_data]
+            field_data = [x for x in field_data]
+            new_data = key_data[0]
+            new_data.extend(field_data[0])
+
+            f = map(lambda x: {x.get('tagKey'), x.get('fieldKey')}, new_data)  # 同时取tagkey和fieldKey
+            var = functools.reduce(lambda x, y: x | y, f)  # 循环获取列表中的集合，并且对之前的集合与后面的集合进行合并。reduce的功能
+            tables_name.update(var)  # 更新到主集合中
+
             self.create_table(text, server_name, database_name, tables_name)
 
         elif level == (index_top, -1):  # 当双击服务器的时候显示数据库
@@ -351,7 +365,7 @@ class InfluxManage(Ui_MainWindow, QObject):
                         child.setIcon(0, icon)
                         self.main_ui.treeView.currentItem().addChild(child)
                 except Exception as e:
-                    QMessageBox.critical(self.QWidget, '提示信息', str(e))
+                    self.qt_cri(str(e))
 
         elif level == (index_top, index_row):  # 当双击数据库的时候显示表
             childCount = self.main_ui.treeView.currentItem().childCount()
@@ -397,17 +411,18 @@ class InfluxManage(Ui_MainWindow, QObject):
             self.main_ui.statusBar.setStyleSheet("color:red")
             self.main_ui.statusBar.showMessage("没有选择数据库，请先选择数据库")
         except Exception as e:
-            QMessageBox.critical(self.MainWindow, '提示信息', str(e))
+            self.qt_cri(str(e))
             print('错误所在的行号：', e.__traceback__.tb_lineno)
 
     def table_conn_client(self):
-        name = self.main_ui.treeView.currentItem().parent().parent().text(0)
-        database = self.main_ui.treeView.currentItem().parent().text(0)
-        db = self.main_ui.treeView.currentItem().text(0)
-        self.influxDbClient.create_client(name, database=database)
-        clients = self.influxDbClient.clients.get(name)
+        server_name = self.main_ui.treeView.currentItem().parent().parent().text(0)
+        database_name = self.main_ui.treeView.currentItem().parent().text(0)
+        table_name = self.main_ui.treeView.currentItem().text(0)
+
+        self.influxDbClient.create_client(server_name, database=database_name)
+        clients = self.influxDbClient.clients.get(server_name)
         client = clients.get("client")
-        return client, name, database, db
+        return client, server_name, database_name, table_name
 
     def select(self, i):
         client, name, database, db = self.table_conn_client()
@@ -421,10 +436,10 @@ class InfluxManage(Ui_MainWindow, QObject):
         try:
             json_body = json.loads(json_body)
             client.write_points(json_body)
-            QMessageBox.information(self.MainWindow, '提示信息', "创建成功")
+            self.qt_info("创建成功")
             self.action_handler_2(0)
         except Exception as e:
-            QMessageBox.critical(self.MainWindow, '提示信息', str(e))
+            self.qt_cri(str(e))
             print('错误所在的行号：', e.__traceback__.tb_lineno)
 
     def create_database(self, client):
@@ -442,7 +457,7 @@ class InfluxManage(Ui_MainWindow, QObject):
             child.setIcon(0, icon)
             self.main_ui.treeView.currentItem().addChild(child)
         except Exception as e:
-            QMessageBox.critical(self.MainWindow, 'Message', str(e))
+            self.qt_cri(str(e))
 
     def action_handler_1(self, types):
         """服务器层操作：
@@ -497,12 +512,12 @@ class InfluxManage(Ui_MainWindow, QObject):
                     c = self.conn.cursor()
                     c.execute(sql)
                     self.conn.commit()
-                    QMessageBox.information(self.MainWindow, 'Message', "删除成功")
+                    self.qt_info("删除成功")
                     self.action_handler_1(2)
                     rootIndex = self.main_ui.treeView.indexOfTopLevelItem(self.main_ui.treeView.currentItem())
                     self.main_ui.treeView.takeTopLevelItem(rootIndex)  # 删除当前服务器节点
                 except Exception as e:
-                    QMessageBox.critical(self.MainWindow, 'Message', str(e))
+                    self.qt_cri(str(e))
 
     def action_handler_2(self, types):
         """
@@ -536,11 +551,11 @@ class InfluxManage(Ui_MainWindow, QObject):
             if reply == QMessageBox.Yes:
                 try:
                     client.drop_database(database)  # 删除数据库
-                    QMessageBox.information(self.MainWindow, 'Message', "删除成功")
+                    self.qt_info("删除成功")
                     current_item = self.main_ui.treeView.currentItem()  # 获取当前节点
                     self.main_ui.treeView.currentItem().parent().removeChild(current_item)  # 删除父目录下当前节点
                 except Exception as e:
-                    QMessageBox.critical(self.MainWindow, 'Message', str(e))
+                    self.qt_cri(str(e))
 
     def action_handler_3(self, types):
         """表单层操作"""
@@ -572,6 +587,7 @@ class InfluxManage(Ui_MainWindow, QObject):
             text = 'SHOW FIELD KEYS FROM "{}"'.format(db)
             tables = client.query(text)
             self.create_table(text, name, database)
+            print(tables)
             self.show_table(tables.raw)
         elif types == 3:
             client, name, database, db = self.table_conn_client()
@@ -580,11 +596,11 @@ class InfluxManage(Ui_MainWindow, QObject):
             if reply == QMessageBox.Yes:
                 try:
                     client.query('drop measurement {}'.format(db))
-                    QMessageBox.information(self.MainWindow, 'Message', "删除成功")
+                    self.qt_cri("删除成功")
                     current_item = self.main_ui.treeView.currentItem()
                     self.main_ui.treeView.currentItem().parent().removeChild(current_item)
                 except Exception as e:
-                    QMessageBox.critical(self.MainWindow, 'Message', str(e))
+                    self.qt_cri(str(e))
         else:
             raise ValueError
 

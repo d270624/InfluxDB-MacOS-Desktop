@@ -15,7 +15,7 @@ from PyQt5.QtWidgets import *
 
 class MyTableWidget(QtWidgets.QTableWidget):
     def __init__(self, centralwidget):
-        super(MyTableWidget, self).__init__(centralwidget)
+        super().__init__(centralwidget)
 
         self.nCurScroller = 0  # 翻页时的当时滑动条位置
         self.pageValue = 10  # 一页显示条数
