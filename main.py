@@ -6,6 +6,7 @@ import random
 import sqlite3
 import sys
 import time
+import datetime
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt, pyqtSignal, QObject, QPoint
@@ -109,6 +110,7 @@ class InfluxManage(Ui_MainWindow, QObject):
         if text != "":
             if len(cursor.fetchall()) >= 100:
                 c.execute("delete from history where time IN (SELECT time from history limit 1)")  # 删除最老的一条
+            text = text.replace("'", "''")
             sql = """INSERT INTO history (time , sql) VALUES ('{}','{}')""".format(save_time, text)  # 插入新的
             c.execute(sql)
             self.conn.commit()
@@ -300,6 +302,9 @@ class InfluxManage(Ui_MainWindow, QObject):
                 currentTableWidget.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)  # 添加滚动条
                 for index, i in enumerate(values):
                     for _index, j in enumerate(i):
+                        if _index == 0:
+                            UTC_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+                            j = datetime.datetime.strptime(str(j), UTC_FORMAT)
                         newItem = QTableWidgetItem(str(j))
                         newItem.setTextAlignment(Qt.AlignCenter)
                         currentTableWidget.setItem(index, _index, newItem)
