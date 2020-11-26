@@ -303,8 +303,8 @@ class InfluxManage(Ui_MainWindow, QObject):
                 for index, i in enumerate(values):
                     for _index, j in enumerate(i):
                         if _index == 0:
-                            UTC_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
-                            j = datetime.datetime.strptime(str(j), UTC_FORMAT)
+                            UTC_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+                            j = datetime.datetime.strptime(str(j), UTC_FORMAT).strftime("%Y-%m-%d %H:%M:%S")
                         newItem = QTableWidgetItem(str(j))
                         newItem.setTextAlignment(Qt.AlignCenter)
                         currentTableWidget.setItem(index, _index, newItem)
