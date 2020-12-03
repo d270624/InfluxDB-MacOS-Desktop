@@ -3,6 +3,7 @@
 import json
 import os
 import random
+import re
 import sqlite3
 import sys
 import time
@@ -243,7 +244,8 @@ class InfluxManage(QObject):
         self.MainWindow.textEdit.setPlainText(text)
 
         self.MainWindow.tableWidget = QTableWidget(tab)
-        self.MainWindow.tableWidget.setGeometry(QtCore.QRect(0, 211, self.MainWindow.width() - 315, self.MainWindow.height() - 335))
+        self.MainWindow.tableWidget.setGeometry(
+            QtCore.QRect(0, 211, self.MainWindow.width() - 315, self.MainWindow.height() - 335))
         self.MainWindow.tableWidget.setObjectName("tableWidget")
 
         self.MainWindow.QComboBox = QComboBox(tab)
@@ -303,20 +305,17 @@ class InfluxManage(QObject):
                 # currentTableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)  # 关闭双击编辑
                 currentTableWidget.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)  # 添加滚动条
                 for index, i in enumerate(values):
-                    for _index, j in enumerate(i):
+                    for _index, data_time in enumerate(i):
                         if _index == 0:
-                            UTC_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
-                            UTC_FORMAT2 = "%Y-%m-%dT%H:%M:%SZ"
-                            try:
-                                j = datetime.datetime.strptime(str(j), UTC_FORMAT).strftime("%Y-%m-%d %H:%M:%S")
-                            except:
-                                pass
-                            try:
-                                j = datetime.datetime.strptime(str(j), UTC_FORMAT2).strftime("%Y-%m-%d %H:%M:%S")
-                            except Exception as e:
-                                pass
-
-                        newItem = QTableWidgetItem(str(j))
+                            obj = re.match(
+                                "^[1-2][0-9][0-9][0-9]-[0-1]{0,1}[0-9]-[0-3]{0,1}[0-9]T([0-1]?[0-9]|2[0-3]):([0-5]"
+                                "[0-9]):([0-5][0-9]).+$",
+                                data_time)
+                            UTC_FORMAT2 = "2020-12-03T02:52:37.409Z"
+                            if obj:
+                                data_time = str(data_time).replace("T", " ")
+                                data_time = data_time.split(".")[0]
+                        newItem = QTableWidgetItem(str(data_time))
                         newItem.setTextAlignment(Qt.AlignCenter)
                         currentTableWidget.setItem(index, _index, newItem)
         except Exception as e:
