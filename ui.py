@@ -150,6 +150,6 @@ class MainWindow(QMainWindow):
         _translate = QtCore.QCoreApplication.translate
         self.setWindowTitle(_translate("MainWindow", "InfluxDB"))
         # self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Tab 1"))
-        self.menu.setTitle(_translate("MainWindow", "设置"))
+        self.menu.setTitle(_translate("MainWindow", "服务器设置"))
         self.actionxinjian.setText(_translate("MainWindow", "新建连接"))
         self.toolBar.setWindowTitle(_translate("MainWindow", "toolBar"))

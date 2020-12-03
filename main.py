@@ -621,6 +621,13 @@ class InfluxManage(QObject):
     def right_click_menu(self, pos):
         index_row = -1
         item = self.MainWindow.treeView.currentItem()
+        if not item:
+            contextMenu = QMenu()  # 创建对象
+            new_conn = contextMenu.addAction(u'新建连接')  # 添加动作
+            new_conn.triggered.connect(self.new_connect)
+            contextMenu.exec_(self.MainWindow.treeView.mapToGlobal(pos))  # 随指针的位置显示菜单
+            contextMenu.show()  # 显示
+            return
         try:
             parent = item.parent()
         except Exception as e:
@@ -632,7 +639,6 @@ class InfluxManage(QObject):
             index_top = self.MainWindow.treeView.indexOfTopLevelItem(parent)
             index_row = parent.indexOfChild(item)
         level = (index_top, index_row)
-
         if level == (-1, index_row):  # 当右击表的时候
             try:
                 contextMenu = QMenu()  # 创建对象
