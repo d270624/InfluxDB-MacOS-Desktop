@@ -17,11 +17,13 @@ from influxdb import InfluxDBClient
 from create_database import Ui_create_database
 from create_ui import Create_Ui_Form
 from history_ui import Ui_history_ui
+from import_ui import Import_UI
 from new_connect_ui import Ui_Form
 from ui import MainWindow
 from constant import sql_constant
 from MyTextEdit import MyTextEdit
 import functools
+import pandas
 
 
 class MyQMainWindow(QMainWindow):
@@ -66,7 +68,9 @@ class InfluxManage(QObject):
         self.MainWindow.show()
         # self.MainWindow.setupUi(self.MainWindow)
 
-        self.MainWindow.actionxinjian.triggered.connect(self.new_connect)
+        self.MainWindow.actionNew.triggered.connect(self.new_connect)
+        self.MainWindow.actionImport.triggered.connect(self.import_connect)
+        self.MainWindow.actionExport.triggered.connect(self.export_connect)
 
         self.new_ui = Ui_Form()
         self.new_QWidget = QWidget()
@@ -74,9 +78,14 @@ class InfluxManage(QObject):
         self.new_ui.setupUi(self.new_QWidget)
 
         self.histroy_ui = Ui_history_ui()
-        self.QWidget = QWidget()
-        self.QWidget.setWindowModality(Qt.ApplicationModal)
-        self.histroy_ui.setupUi(self.QWidget)
+        self.history_QWidget = QWidget()
+        self.history_QWidget.setWindowModality(Qt.ApplicationModal)
+        self.histroy_ui.setupUi(self.history_QWidget)
+        self.histroy_ui.clear.clicked.connect(self.histroy_clear)
+
+        self.import_ui_QWidget = QWidget()
+        self.import_ui_QWidget.setWindowModality(Qt.ApplicationModal)
+        self.import_ui = Import_UI(self.import_ui_QWidget)
 
         self.create_ui = Create_Ui_Form()
         self.create_QWidget = QWidget()
@@ -105,6 +114,14 @@ class InfluxManage(QObject):
         self.qt_info = functools.partial(QMessageBox.information, self.MainWindow, '提示信息')
         self.qt_cri = functools.partial(QMessageBox.critical, self.MainWindow, '提示信息')
 
+    def histroy_clear(self):
+        c = self.conn.cursor()
+        c.execute("delete from history")
+        c.execute("update sqlite_sequence SET seq = 0 where name ='history'")
+        self.conn.commit()
+        c.close()
+        self.show_history()
+
     def save_history(self, text):
         save_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         c = self.conn.cursor()
@@ -116,9 +133,10 @@ class InfluxManage(QObject):
             sql = """INSERT INTO history (time , sql) VALUES ('{}','{}')""".format(save_time, text)  # 插入新的
             c.execute(sql)
             self.conn.commit()
+        c.close()
 
     def show_history(self):
-        self.QWidget.show()
+        self.history_QWidget.show()
         c = self.conn.cursor()
         cursor = c.execute("SELECT * from history order by time DESC ")
         data = cursor.fetchall()
@@ -138,6 +156,50 @@ class InfluxManage(QObject):
         self.new_ui.pushButton.clicked.connect(self.save_connect)
         self.new_ui.pushButton_2.clicked.connect(self.test_connect)
 
+    def import_handler(self):
+        conn = sqlite3.connect('db/influx.db')
+        src = self.import_ui.browse_edit.text()
+        try:
+            df = pandas.read_excel(src)
+            data = df.to_dict(orient='split')
+            c = conn.cursor()
+            for server_data in data["data"]:
+                sql = """INSERT INTO ServerList (name, address, port, user, password, ssl_switch) VALUES ('{}','{}',{}
+                ,'{}','{}',{})""".format(*server_data)
+                c.execute(sql)
+            conn.commit()
+            self.qt_info("保存成功")
+        except sqlite3.IntegrityError as e:
+            self.qt_cri("name or ip existing")
+            print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
+        except FileNotFoundError:
+            self.qt_cri("No such file or directory")
+        except Exception as e:
+            self.qt_cri(str(e))
+            print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
+        finally:
+            conn.close()
+            self.MainWindow.treeView.clear()
+            self.get_server_list()
+
+    def import_connect(self):
+        self.import_ui_QWidget.show()
+        self.import_ui.import_button.clicked.connect(self.import_handler)
+
+    def export_connect(self):
+        c = self.conn.cursor()
+        sql = "SELECT name, address, port, user, password, ssl_switch from ServerList"
+        cursor = c.execute(sql)
+        df = pandas.DataFrame(cursor, columns=["name", "ip", "port", "account", "password", "ssl(2=open,0=close)"])
+        filename = QFileDialog.getSaveFileName(self.MainWindow, 'save file', './template.xlsx')
+        if not all(filename):
+            return
+        try:
+            df.to_excel(filename[0], index=False)
+            self.qt_info("导出成功！已导出到当前目录下的template.xlsx文件中")
+        except Exception as e:
+            self.qt_cri(str(e))
+
     def test_connect(self):
         address = self.new_ui.address.text()
         port = self.new_ui.port.text()
@@ -152,6 +214,7 @@ class InfluxManage(QObject):
             self.qt_info("连接成功")
         except Exception as e:
             self.qt_cri(str(e))
+            print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
 
     def save_connect(self, types):
         """ 如果类型为True则编辑服务器"""
@@ -201,9 +264,10 @@ class InfluxManage(QObject):
             self.qt_info("名称不能重复")
         except ValueError as e:
             self.qt_info(str(e))
+            print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
 
     def get_server_list(self, types=False, ID=None, rootIndex=None):
-        """ ssl_switch : 开启ssl0 未开启ssl, 2"""
+        """ ssl_switch : 开启ssl2 未开启ssl, 0"""
         c = self.conn.cursor()
         sql = "SELECT name, address, port, user, password, ssl_switch from ServerList"
         if types:
@@ -282,11 +346,13 @@ class InfluxManage(QObject):
         flag = True
         try:
             series = tables.get("series")
+            print(series)
             if not series:
                 currentTableWidget.setColumnCount(1)  # 设置列
                 currentTableWidget.setRowCount(1)  # 设置行
                 currentTableWidget.setHorizontalHeaderLabels(["返回结果"])  # 设置标题
                 currentTableWidget.setItem(0, 0, QTableWidgetItem(""))
+                return
             for x in series:
                 table_name = x.get('name')
                 columns = x.get('columns')
@@ -310,7 +376,6 @@ class InfluxManage(QObject):
                                 "^[1-2][0-9][0-9][0-9]-[0-1]{0,1}[0-9]-[0-3]{0,1}[0-9]T([0-1]?[0-9]|2[0-3]):([0-5]"
                                 "[0-9]):([0-5][0-9]).+$",
                                 data_time)
-                            UTC_FORMAT2 = "2020-12-03T02:52:37.409Z"
                             if obj:
                                 data_time = str(data_time).replace("T", " ")
                                 data_time = data_time.split(".")[0]
@@ -319,6 +384,7 @@ class InfluxManage(QObject):
                         currentTableWidget.setItem(index, _index, newItem)
         except Exception as e:
             self.qt_cri(str(e))
+            print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
 
     def double_handler(self):
         """双击服务器节点事件"""
@@ -380,6 +446,7 @@ class InfluxManage(QObject):
                         self.MainWindow.treeView.currentItem().addChild(child)
                 except Exception as e:
                     self.qt_cri(str(e))
+                    print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
 
         elif level == (index_top, index_row):  # 当双击数据库的时候显示表
             childCount = self.MainWindow.treeView.currentItem().childCount()
@@ -426,7 +493,7 @@ class InfluxManage(QObject):
             self.MainWindow.statusBar.showMessage("没有选择数据库，请先选择数据库")
         except Exception as e:
             self.qt_cri(str(e))
-            print('错误所在的行号：', e.__traceback__.tb_lineno)
+            print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
 
     def table_conn_client(self):
         server_name = self.MainWindow.treeView.currentItem().parent().parent().text(0)
@@ -454,7 +521,7 @@ class InfluxManage(QObject):
             self.action_handler_2(0)
         except Exception as e:
             self.qt_cri(str(e))
-            print('错误所在的行号：', e.__traceback__.tb_lineno)
+            print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
 
     def create_database(self, client):
         database = self.create_database_ui.lineEdit.text()
@@ -472,6 +539,7 @@ class InfluxManage(QObject):
             self.MainWindow.treeView.currentItem().addChild(child)
         except Exception as e:
             self.qt_cri(str(e))
+            print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
 
     def action_handler_1(self, types):
         """服务器层操作：
@@ -532,6 +600,7 @@ class InfluxManage(QObject):
                     self.MainWindow.treeView.takeTopLevelItem(rootIndex)  # 删除当前服务器节点
                 except Exception as e:
                     self.qt_cri(str(e))
+                    print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
 
     def action_handler_2(self, types):
         """
@@ -570,6 +639,7 @@ class InfluxManage(QObject):
                     self.MainWindow.treeView.currentItem().parent().removeChild(current_item)  # 删除父目录下当前节点
                 except Exception as e:
                     self.qt_cri(str(e))
+                    print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
 
     def action_handler_3(self, types):
         """表单层操作"""
@@ -614,6 +684,7 @@ class InfluxManage(QObject):
                     self.MainWindow.treeView.currentItem().parent().removeChild(current_item)
                 except Exception as e:
                     self.qt_cri(str(e))
+                    print('错误所在的行号：', e.__traceback__.tb_lineno)
         else:
             raise ValueError
 
@@ -630,7 +701,8 @@ class InfluxManage(QObject):
         try:
             parent = item.parent()
         except Exception as e:
-            print(e)
+            self.qt_cri(str(e))
+            print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
             return
         if parent is None:
             index_top = self.MainWindow.treeView.indexOfTopLevelItem(item)
@@ -652,7 +724,7 @@ class InfluxManage(QObject):
                 contextMenu.exec_(self.MainWindow.treeView.mapToGlobal(pos))  # 随指针的位置显示菜单
                 contextMenu.show()  # 显示
             except Exception as e:
-                print(e)
+                print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
         elif level == (index_top, -1):  # 当右击服务器的时候
             contextMenu = QMenu()  # 创建对象
             actionA = contextMenu.addAction(u'创建数据库')  # 添加动作

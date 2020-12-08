@@ -13,6 +13,7 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import *
 from MyTextEdit import MyTextEdit
 
+
 class MyTableWidget(QtWidgets.QTableWidget):
     def __init__(self, centralwidget):
         super().__init__(centralwidget)
@@ -138,18 +139,26 @@ class MainWindow(QMainWindow):
         self.menu = QtWidgets.QMenu(self.menuBar)
         self.menu.setObjectName("menu")
         self.setMenuBar(self.menuBar)
-        self.actionxinjian = QtWidgets.QAction(self)
-        self.actionxinjian.setObjectName("actionxinjian")
-        self.menu.addAction(self.actionxinjian)
+        self.actionNew = QtWidgets.QAction(self)
+        self.actionNew.setObjectName("actionNew")
+        self.menu.addAction(self.actionNew)
+        self.menu.addSeparator()  # 分隔符
+        self.actionImport = QtWidgets.QAction(self)
+        self.actionImport.setObjectName("actionImport")
+        self.menu.addAction(self.actionImport)
+        self.actionExport = QtWidgets.QAction(self)
+        self.actionExport.setObjectName("actionExport")
+        self.menu.addAction(self.actionExport)
         self.menuBar.addAction(self.menu.menuAction())
         self.retranslateUi()
-        # self.tabWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(self)
 
     def retranslateUi(self):
         _translate = QtCore.QCoreApplication.translate
-        self.setWindowTitle(_translate("MainWindow", "InfluxDB"))
+        self.setWindowTitle(_translate("InfluxDB", "InfluxDB"))
         # self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Tab 1"))
-        self.menu.setTitle(_translate("MainWindow", "服务器设置"))
-        self.actionxinjian.setText(_translate("MainWindow", "新建连接"))
-        self.toolBar.setWindowTitle(_translate("MainWindow", "toolBar"))
+        self.menu.setTitle(_translate("server setting", "服务器设置"))
+        self.actionNew.setText(_translate("new connect", "新建连接"))
+        self.actionImport.setText(_translate("import setting", "导入配置"))
+        self.actionExport.setText(_translate("export setting", "导出配置"))
+        self.toolBar.setWindowTitle(_translate("tool bar", "工具栏"))
