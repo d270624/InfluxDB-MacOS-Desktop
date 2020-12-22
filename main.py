@@ -2,11 +2,12 @@
 
 import json
 import os
-import random
 import re
 import sqlite3
 import sys
 import time
+import functools
+import pandas
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt, pyqtSignal, QObject, QPoint
@@ -22,8 +23,7 @@ from new_connect_ui import Ui_Form
 from ui import MainWindow
 from constant import sql_constant
 from MyTextEdit import MyTextEdit
-import functools
-import pandas
+from utils import Runthread
 
 
 class MyQMainWindow(QMainWindow):
@@ -184,6 +184,7 @@ class InfluxManage(QObject):
 
     def import_connect(self):
         self.import_ui_QWidget.show()
+        self.import_ui.import_button.disconnect()
         self.import_ui.import_button.clicked.connect(self.import_handler)
 
     def export_connect(self):
@@ -257,13 +258,13 @@ class InfluxManage(QObject):
                 ID = result.fetchone()[0]
                 rootIndex = self.MainWindow.treeView.topLevelItemCount()
                 self.get_server_list(True, ID, rootIndex)
-            self.new_QWidget.close()
             self.qt_info("保存成功")
+            self.new_QWidget.close()
 
         except sqlite3.IntegrityError as e:
-            self.qt_info("名称不能重复")
+            self.qt_cri("名称不能重复")
         except ValueError as e:
-            self.qt_info(str(e))
+            self.qt_cri(str(e))
             print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
 
     def get_server_list(self, types=False, ID=None, rootIndex=None):
@@ -346,7 +347,7 @@ class InfluxManage(QObject):
         flag = True
         try:
             series = tables.get("series")
-            print(series)
+            # print(series)
             if not series:
                 currentTableWidget.setColumnCount(1)  # 设置列
                 currentTableWidget.setRowCount(1)  # 设置行
@@ -469,7 +470,7 @@ class InfluxManage(QObject):
     def status_bar_signal(self, text):
         self.MainWindow.statusBar.showMessage(text)
 
-    def exec_handler(self):
+    def run(self):
         try:
             text_obj = self.MainWindow.tabWidget.currentWidget().findChild(QPlainTextEdit, "textEdit")
             old_time = time.time() * 1000
@@ -484,9 +485,7 @@ class InfluxManage(QObject):
             now_time = time.time() * 1000
             self.show_table(tables.raw)  # 将查询结果传到show_table，并显示数据到前端
             self.MainWindow.statusBar.showMessage("执行完毕,耗时:{}毫秒".format(int(now_time - old_time)))
-            color = ["blue", "green"]
-            random.shuffle(color)
-            self.MainWindow.statusBar.setStyleSheet("color:{}".format(color[0]))
+            self.MainWindow.statusBar.setStyleSheet("color:green")
             self.save_history(text=text_obj.toPlainText())
         except AttributeError:
             self.MainWindow.statusBar.setStyleSheet("color:red")
@@ -494,6 +493,13 @@ class InfluxManage(QObject):
         except Exception as e:
             self.qt_cri(str(e))
             print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
+
+    def exec_handler(self):
+        self.MainWindow.statusBar.showMessage("执行中...")
+        self.MainWindow.statusBar.setStyleSheet("color:red")
+        self.run_thread = Runthread()  # 步骤2. 主线程连接子线,同时传递一个值给子线程
+        self.run_thread.signal.connect(self.run)  # 自定义信号连接
+        self.run_thread.start()  # 步骤3 子线程开始执行run函数
 
     def table_conn_client(self):
         server_name = self.MainWindow.treeView.currentItem().parent().parent().text(0)
@@ -528,15 +534,9 @@ class InfluxManage(QObject):
         try:
             client.create_database(database)  # 创建数据库
             QMessageBox.information(self.MainWindow, 'Message', "创建成功")
+            self.action_handler_1(2)
+            self.double_handler()
 
-            icon = QIcon()
-            icon.addPixmap(QPixmap("images/database_open.ico"), QIcon.Normal, QIcon.On)  # 设置打开时的图片样式
-            icon.addPixmap(QPixmap("images/database_close.ico"), QIcon.Normal, QIcon.Off)  # 设置关闭的时候图片样式
-
-            child = QTreeWidgetItem()
-            child.setText(0, database)  # 插入根节点
-            child.setIcon(0, icon)
-            self.MainWindow.treeView.currentItem().addChild(child)
         except Exception as e:
             self.qt_cri(str(e))
             print(e, '错误所在的行号：', e.__traceback__.tb_lineno)
@@ -554,6 +554,7 @@ class InfluxManage(QObject):
         client = clients.get("client")
         if types == 1:
             self.create_database_QWidget.show()
+            self.create_database_ui.pushButton.disconnect()
             self.create_database_ui.pushButton.clicked.connect(lambda: self.create_database(client))
 
         if types == 2:
@@ -586,7 +587,6 @@ class InfluxManage(QObject):
             # 删除数据库中的信息
             data = clients.get("data")
             sql = 'delete from ServerList where id={}'.format(data[-1])
-
             reply = QMessageBox.question(self.MainWindow, 'Message', "确定要删除？",
                                          QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply == QMessageBox.Yes:
@@ -627,9 +627,10 @@ class InfluxManage(QObject):
                     self.MainWindow.treeView.currentItem().addChild(child)
         if types == 1:
             self.create_QWidget.show()
+            self.create_ui.pushButton.disconnect()
             self.create_ui.pushButton.clicked.connect(lambda: self.create_form(client))
         if types == 2:
-            reply = QMessageBox.question(self.MainWindow, 'Message', "确定要删除？",
+            reply = QMessageBox.question(self.MainWindow, 'Message', "确定要删除数据库: {}".format(database),
                                          QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply == QMessageBox.Yes:
                 try:
