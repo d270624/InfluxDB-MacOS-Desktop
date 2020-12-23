@@ -161,6 +161,7 @@ class InfluxManage(QObject):
         src = self.import_ui.browse_edit.text()
         try:
             df = pandas.read_excel(src)
+            print(df)
             data = df.to_dict(orient='split')
             c = conn.cursor()
             for server_data in data["data"]:
@@ -192,12 +193,12 @@ class InfluxManage(QObject):
         sql = "SELECT name, address, port, user, password, ssl_switch from ServerList"
         cursor = c.execute(sql)
         df = pandas.DataFrame(cursor, columns=["name", "ip", "port", "account", "password", "ssl(2=open,0=close)"])
-        filename = QFileDialog.getSaveFileName(self.MainWindow, 'save file', './template.xlsx')
+        filename = QFileDialog.getSaveFileName(self.MainWindow, 'save file', './template.xls')
         if not all(filename):
             return
         try:
             df.to_excel(filename[0], index=False)
-            self.qt_info("导出成功！已导出到当前目录下的template.xlsx文件中")
+            self.qt_info("导出成功！已导出到当前目录下的template.xls文件中")
         except Exception as e:
             self.qt_cri(str(e))
 

@@ -42,5 +42,5 @@ class Import_UI(object):
 
     def setBrowerPath(self):
         file_name, filetype = QtWidgets.QFileDialog.getOpenFileName(self.import_QWidget, "浏览", ".",
-                                                                    "Select Xlsx Files (*.xlsx)")
+                                                                    "Select Xls Files (*.xls)")
         self.browse_edit.setText(file_name)
