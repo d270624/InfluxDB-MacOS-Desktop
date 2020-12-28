@@ -91,8 +91,8 @@ class MainWindow(QMainWindow):
 
     def initUI(self):
         self.setObjectName("MainWindow")
-        self.resize(1416, 900)
-        self.setMinimumSize(QtCore.QSize(1416, 900))
+        self.resize(800, 600)
+        self.setMinimumSize(QtCore.QSize(800, 600))
         # MainWindow.setMaximumSize(QtCore.QSize(1416, 900))
         self.centralwidget = QtWidgets.QWidget(self)
         self.centralwidget.setObjectName("centralwidget")

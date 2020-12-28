@@ -115,12 +115,17 @@ class InfluxManage(QObject):
         self.qt_cri = functools.partial(QMessageBox.critical, self.MainWindow, '提示信息')
 
     def histroy_clear(self):
-        c = self.conn.cursor()
-        c.execute("delete from history")
-        c.execute("update sqlite_sequence SET seq = 0 where name ='history'")
-        self.conn.commit()
-        c.close()
-        self.show_history()
+        try:
+            c = self.conn.cursor()
+            c.execute("delete from history")
+            c.execute("update sqlite_sequence SET seq = 0 where name ='history'")
+            self.conn.commit()
+            c.close()
+            self.show_history()
+        except Exception as e:
+            with open("error.log", "w") as f:
+                f.write(str(e))
+            print(e)
 
     def save_history(self, text):
         save_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
