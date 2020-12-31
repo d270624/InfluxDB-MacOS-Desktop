@@ -8,4 +8,4 @@
 
 2、模板中ssl填0代表不使用SSL，填2表示启用SSL
 
-![图1](https://github.com/d270624/InfluxDBClientDesktopMACOS/blob/master/describe.png)
+![1211609384821_.pic.jpg](https://i.loli.net/2020/12/31/cvdFKRMJ2ExgLa6.png)
