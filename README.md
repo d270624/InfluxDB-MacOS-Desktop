@@ -8,4 +8,4 @@
 
 2、模板中ssl填0代表不使用SSL，填2表示启用SSL
 
-![1211609384821_.pic.jpg](https://i.loli.net/2020/12/31/cvdFKRMJ2ExgLa6.png)
+![1211609384821_.pic.jpg](https://i.jpg.dog/img/1495f37eef1975a78ce3f15d4432c735.png)
