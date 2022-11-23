@@ -1,3 +1,5 @@
+此工具适用于 InfluxDB 1.x，不支持InfluxDB 2.x
+
 该脚本前端使用PYQT5编写，因为目前没有在GIT上找到MAC版Influx桌面版管理工具，所以开发了这款软件
 
 使用py2app打包,兼容MAC 10.X, 11.X版本系统，因为只在这两个系统中测试过
@@ -9,6 +11,7 @@
 2、模板中ssl填0代表不使用SSL，填2表示启用SSL
 
 3、标个星再走
+
 
 软件截图：
 ![1211609384821_.pic.jpg](https://i.jpg.dog/img/1495f37eef1975a78ce3f15d4432c735.png)
