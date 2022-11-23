@@ -1,0 +1,17 @@
+name: Super-Linter
+
+# Run this workflow every time a new commit pushed to your repository
+on: push
+
+jobs:
+  # Set the job key. The key is displayed as the job name
+  # when a job name is not provided
+  super-lint:
+    # Name the Job
+    name: Lint code base
+    # Set the type of machine to run on
+    runs-on: node
+
+    steps:
+    - uses: actions/checkout@v2
+    - run: echo "Run your script here"
