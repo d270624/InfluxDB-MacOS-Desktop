@@ -8,7 +8,7 @@ jdcal==1.4.1
 macholib==1.16
 modulegraph==0.18
 msgpack==1.0.2
-numpy==1.19.4
+numpy==1.22.0
 openpyxl==3.0.5
 pandas==1.1.5
 py2app==0.28
